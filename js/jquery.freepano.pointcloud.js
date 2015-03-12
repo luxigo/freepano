@@ -109,26 +109,66 @@ $.extend(true,PointCloud.prototype,{
           });
           var offset=pointCloud.offset;
 
+          var halfov=panorama.camera.instance.fov/2;
+          var aspect=panorama.camera.instance.aspect;
+
+          var fov={
+            theta: {
+               min: (panorama.lon-halfov*aspect)*Math.PI/180+Math.PI,
+               max: (panorama.lon+halfov*aspect)*Math.PI/180+Math.PI
+            },
+            phi: {
+               min: ((panorama.lat+90-halfov))*Math.PI/180,
+               max: ((panorama.lat+90+halfov))*Math.PI/180              
+            }
+          }
+
+          function _clamp(value,max) {
+            if (value<0) return value+max;
+            if (value>max) return value-max;
+            return value;
+          }
+
+          fov.theta.min=_clamp(fov.theta.min,Math.PI*2);
+          fov.theta.max=_clamp(fov.theta.max,Math.PI*2);
+          fov.phi.min=_clamp(fov.phi.min,Math.PI)-Math.PI/2;
+          fov.phi.max=_clamp(fov.phi.max,Math.PI)-Math.PI/2;
+          
           var points=json.points;
           for (var k=0; k<json.points.length; k+=field_count) {
-            // unit vector
-            v.x=0;
-            v.y=0;
-            v.z=1;
 
             var phi=points[k+offset.phi];
             var theta=points[k+offset.theta];
             var depth=points[k+offset.depth];
 
-            // apply rotations
-            v.applyAxisAngle(panorama.Xaxis,phi);
-            v.applyAxisAngle(panorama.Yaxis,theta);
+            if (
+                  (
+                    (theta>fov.theta.min && theta<fov.theta.max) ||
+                    ((fov.theta.max<fov.theta.min) && theta<fov.theta.max && theta>fov.theta.min)
+                  
+                  ) && (
 
-            // store position
-            positions[i]=-v.x*depth;
-            positions[i+1]=v.y*depth;
-            positions[i+2]=v.z*depth;
-            i+=3;
+                    (phi>fov.phi.min && phi<fov.phi.max) ||
+                    ((fov.phi.max<fov.phi.min) && phi<fov.phi.max && phi>fov.phi.min)
+                  )
+            ) {
+
+              // unit vector
+              v.x=0;
+              v.y=0;
+              v.z=1;
+
+              // apply rotations
+              v.applyAxisAngle(panorama.Xaxis,phi);
+              v.applyAxisAngle(panorama.Yaxis,theta);
+
+              // store position
+              positions[i]=-v.x*depth;
+              positions[i+1]=v.y*depth;
+              positions[i+2]=v.z*depth;
+              i+=3;
+
+            }
 
             // store particle index where it belongs
             var x=Math.round(theta/step)%360;
@@ -138,19 +178,19 @@ $.extend(true,PointCloud.prototype,{
               y+=180;
             }
 
-            try {
+//            try {
               section[x][y].push(k/field_count);
-            } catch(e) {
+/*            } catch(e) {
               console.log(x,y);
             }
-
+*/
           }
           break;
 
       }
       console.log('parsing cloud... done');
 
-      return positions;
+      return positions.subarray(0,i);
 
     }, // pointCloud.defaults.parseJSON
 
@@ -243,7 +283,7 @@ $.extend(true,PointCloud.prototype,{
     
     // extract particles positions from JSON 
     var positions=pointCloud.parseJSON(json);
-
+    
     // add particles to geometry
     pointCloud.geometry.addAttribute('position', new THREE.BufferAttribute(positions, 3)); 
     
