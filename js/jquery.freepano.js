@@ -185,8 +185,8 @@ $.extend(true,TileSet.prototype,{
         theta.min=col*tileSet.thetaLength;
         theta.max=theta.min+tileSet.thetaLength;
 
-        phi.min=col*tileSet.phiLength;
-        phi.max=theta.min+tileSet.thetaLength;
+        phi.min=row*tileSet.phiLength;
+        phi.max=phi.min+tileSet.phiLength;
 
         // clamp angular values
         function _clamp(value,max) {
