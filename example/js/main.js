@@ -175,7 +175,7 @@ $(document).on('filesloaded', function(){
 
       heightSegments: 18,
 
-      // panorama.sphere.texture: sphere texture options
+      // panorama.sphere.tileSet: sphere tileSet options
       // When using 'panorama.list' to configure several panoramas,
       // 'panorama.list.defaults' will extend or override values below
 
@@ -390,13 +390,13 @@ $(document).on('filesloaded', function(){
 
 */
     // when using jquery.freepano.list.js,
-    // you can set the preferences for several images below
-    // instead of sphere.texture above
+    // you can set the tileSet options below
+    // instead of sphere.tileSet above
 
     list: {
 
         // default options for elements of the 'images' object below
-        // (will be merged with the sphere.texture properties above)
+        // (will be merged with the sphere.tileSet properties above)
 
         defaults: {
 
