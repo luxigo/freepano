@@ -166,11 +166,13 @@ $.extend(true,TileSet.prototype,{
     /**
     * TileSet.getTileBoundaries
     *
-    * return min and max horizontal and vertical coordinates (in radians)
-    * of the given tile, in the sphere referential
+    * Return min and max horizontal and vertical coordinates (in radians)
+    * of the given tile, in the sphere referential, keeping max > min
+    * for looping purposes.
     *
-    * @param col  the tile horizontal index
-    * @param row  the tile vertical index
+    * @param col    the tile horizontal index
+    * @param row    the tile vertical index
+    *
     * @return Object  the tile boundaries
     *
     */
@@ -181,37 +183,42 @@ $.extend(true,TileSet.prototype,{
 
         var theta={};
         var phi={};
+        var lon={};
+        var lat={};
 
+        // compute boundaries in radians
         theta.min=col*tileSet.thetaLength;
         theta.max=theta.min+tileSet.thetaLength;
 
         phi.min=row*tileSet.phiLength;
         phi.max=phi.min+tileSet.phiLength;
 
-        // clamp angular values
+        // clamp and adjust angular values
         function _clamp(value,max) {
           if (value<0) return value+max;
           if (value>=max) return value-max;
           return value;
         }
 
-        theta.min=Math.round(_clamp(theta.min,360));
-        theta.max=Math.round(_clamp(theta.max,360));
-        phi.min=Math.round(_clamp(phi.min,180)-90);
-        phi.max=Math.round(_clamp(phi.max,180)-90);
+        theta.min=_clamp(theta.min,Math.PI*2);
+        theta.max=_clamp(theta.max,Math.PI*2);
+        phi.min=_clamp(phi.min,Math.PI)-Math.PI/2;
+        phi.max=_clamp(phi.max,Math.PI)-Math.PI/2;
 
+        // make sure max values are greater than min values
         if (theta.min>theta.max) {
-          theta.max+=360;
+          theta.max+=Math.PI*2;
         }
 
         if (phi.min>phi.max) {
-          phi.max+=180;
+          phi.max+=Math.PI;
         }
 
         return {
             theta: theta,
             phi: phi
         }
+
     } // tileSet_getTileBoundaries
 
 
