@@ -166,9 +166,9 @@ $.extend(true,TileSet.prototype,{
     /**
     * TileSet.getTileBoundaries
     *
-    * Return min and max horizontal and vertical coordinates (in radians)
-    * of the given tile, in the sphere referential, keeping max > min
-    * for looping purposes.
+    * Return min and max horizontal and vertical coordinates (in positive
+    * radians) of the given tile, in the sphere referential,
+    * keeping max > min for looping purposes.
     *
     * @param col    the tile horizontal index
     * @param row    the tile vertical index
@@ -199,7 +199,7 @@ $.extend(true,TileSet.prototype,{
           if (value>=max) return value-max;
           return value;
         }
-
+        
         theta.min=_clamp(theta.min,Math.PI*2);
         theta.max=_clamp(theta.max,Math.PI*2);
         phi.min=_clamp(phi.min,Math.PI)-Math.PI/2;
@@ -218,7 +218,7 @@ $.extend(true,TileSet.prototype,{
             theta: theta,
             phi: phi
         }
-
+        
     } // tileSet_getTileBoundaries
 
 
@@ -433,45 +433,46 @@ $.extend(true,Sphere.prototype,{
         sphere.updateTiles.canvas_widht=panorama.renderer.domElement.width;
         sphere.updateTiles.canvas_widht=panorama.renderer.domElement.height;
 
-        // loop over each mesh of the sphere
+        // for every tile
         $.each(sphere.object3D.children, function() {
 
             var mesh = this;
 
-            // trigger loading for every tile, or only for visible tiles (according to frustum)
-            // depending on sphere.dynamicTileLoading value
+            // Trigger loading of tiles - Only for visible tiles if dynamic loading is enabled
             if (!sphere.dynamicTileLoading || sphere.panorama.camera.frustum.intersectsObject(mesh)) {
-                // visible
+                
+                // nothing to do if rendering is enabled for this tile
                 if (mesh.visible)
                     return;
 
-                // set as visible
+                // enable rendering for this tile
                 mesh.visible = true;
 
                 // delay the sphere load event
                 if (sphere.dynamicTileLoading) ++sphere.tilesToLoad;
 
-                // load tile
+                // trigger tile loading
                 mesh.material.map=sphere.loadTile(mesh.col,mesh.row);
                 mesh.material.needsUpdate = true;
 
             } else {
-
-                // not visible
+                // -> dynamic loading is enabled AND tile is out of view
+                
+                // nothing to do if rendering is disabled for this tile
                 if (!mesh.visible){
                   return;
                 }
 
-                // set invisible
+                // disable rendering for this tile
                 mesh.visible = false;
 
-                // dispose hidden tile texture/material depending on sphere.dynamicTileDisposal value
+                // dispose hidden tile texture/material if requested
                 if (sphere.dynamicTileDisposal) {
 
-                    // has material
+                    // has texture
                     if (mesh.material && mesh.material.map) {
 
-                        // dispose tile
+                        // dispose texture and material
                         mesh.material.map.dispose();
                         mesh.material.dispose();
 
@@ -584,13 +585,13 @@ $.extend(true,Sphere.prototype,{
     }, // sphere_loadTile_progressive
 
     /**
-     * Sphere.updateTileSet()
+     * Sphere.tileSetChanged()
      *
-     * Trigger panorama tiles loading after sphere texture change
+     * Trigger panorama tiles loading after sphere tileSet change
      *
      * @return  undefined
      */
-    updateTileSet: function sphere_updateTileSet() {
+    tileSetChanged: function sphere_tileSetChanged() {
 
         var sphere = this;
         var panorama=this.panorama;
@@ -614,7 +615,7 @@ $.extend(true,Sphere.prototype,{
         // trigger tiles loading
         sphere.updateTiles();
 
-    } // sphere_updateTileSet
+    } // sphere_tileSetChanged
 
 }); // Sphere Prototype
 

@@ -194,7 +194,7 @@ $.extend(true,PanoList.prototype,{
     $.extend(true, panorama, pano_list.images[imageId]);
     $.extend(true, panorama.sphere.tileSet, pano_list.getTileSetOptions(imageId));
     pano_list.overrideSettings(imageId);
-    panorama.sphere.updateTileSet(callback);
+    panorama.sphere.tileSetChanged(callback);
   },
 
   getPathTo: function panoList_getPathTo(imageId) {
