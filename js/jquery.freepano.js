@@ -45,7 +45,7 @@
 
 /*
  * TileSet
- * Class Constructor
+ * Object Constructor
  */
 function TileSet(options) {
 
@@ -59,7 +59,7 @@ function TileSet(options) {
 
 /*
  * TileSet
- * Class Prototype
+ * Object Prototype
  */
 $.extend(true,TileSet.prototype,{
 
@@ -199,7 +199,7 @@ $.extend(true,TileSet.prototype,{
           if (value>=max) return value-max;
           return value;
         }
-        
+
         theta.min=_clamp(theta.min,Math.PI*2);
         theta.max=_clamp(theta.max,Math.PI*2);
         phi.min=_clamp(phi.min,Math.PI)-Math.PI/2;
@@ -218,7 +218,7 @@ $.extend(true,TileSet.prototype,{
             theta: theta,
             phi: phi
         }
-        
+
     } // tileSet_getTileBoundaries
 
 
@@ -227,7 +227,7 @@ $.extend(true,TileSet.prototype,{
 
 /*
  * Sphere
- * Class Constructor
+ * Object Constructor
  */
 function Sphere(options) {
 
@@ -241,7 +241,7 @@ function Sphere(options) {
 
 /*
  * Sphere
- * Class Prototype
+ * Object Prototype
  */
 $.extend(true,Sphere.prototype,{
 
@@ -345,9 +345,9 @@ $.extend(true,Sphere.prototype,{
 
                 // bind sphere segment properties
                 $.extend(true,mesh, {
+                    sphere: sphere,
                     col: col,
-                    row: row,
-                    visible: false
+                    row: row
                 });
 
                 // add segment to sphere
@@ -364,7 +364,7 @@ $.extend(true,Sphere.prototype,{
     }, // sphere_build
 
     /**
-     * Sphere.updateTiles()
+     * Sphere.updateTilesVisibilityStatus()
      *
      * Trigger panorama tiles loading
      * if sphere.dynamicTileLoading is enabled, only visible tiles
@@ -372,46 +372,49 @@ $.extend(true,Sphere.prototype,{
      *
      * @return  undefined
      */
-    updateTiles: function sphere_updateTiles() {
+    updateTilesVisibilityStatus: function sphere_updateTilesVisibilityStatus() {
 
         var sphere = this;
 
-        // do nothing if dynamic tile loading is disabled and tiles are loaded/loading
+        // Load remaining tiles if dynamic loading is enbled
         if (!sphere.dynamicTileLoading) {
+
           var tilesCount=sphere.tileSet.columns*sphere.tileSet.rows;
-          if (sphere.tilesLoaded==tilesCount || sphere.tilesToLoad) {
-            return;
+
+          // ... and tiles are not loaded/loading
+          if (sphere.tilesLoaded!=tilesCount && !sphere.tilesToLoad) {
+            sphere.loadRemainingTiles();
           }
-          sphere.tilesToLoad=tilesCount;
+
         }
 
         var panorama=sphere.panorama;
         var canvas=panorama.renderer.domElement;
 
-        // no need to update if the following parameters didnt change
+        // no need to check visibility status if the following parameters didnt change
         if (
-            sphere_updateTiles.lon==panorama.lon &&
-            sphere_updateTiles.lat==panorama.lat &&
-            sphere_updateTiles.fov==panorama.camera.instance.fov &&
-            sphere_updateTiles.canvas_width==canvas.width &&
-            sphere_updateTiles.canvas_height==canvas.height
+            sphere_updateTilesVisibilityStatus.lon==panorama.lon &&
+            sphere_updateTilesVisibilityStatus.lat==panorama.lat &&
+            sphere_updateTilesVisibilityStatus.fov==panorama.camera.instance.fov &&
+            sphere_updateTilesVisibilityStatus.canvas_width==canvas.width &&
+            sphere_updateTilesVisibilityStatus.canvas_height==canvas.height
         ) {
           return;
         }
 
-        // limit update rate
-        if (!sphere.updateTiles.timeout) {
-          sphere.updateTiles.timeout=setTimeout(function(){
-            sphere.doUpdateTiles();
+        // limit checking rate
+        if (!sphere.updateTilesVisibilityStatus.timeout) {
+          sphere.updateTilesVisibilityStatus.timeout=setTimeout(function(){
+            sphere.doUpdateTilesVisibilityStatus();
           },100);
         }
 
-    }, // sphere_updateTiles
+    }, // sphere_updateTilesVisibilityStatus
 
     /**
-     * Sphere.doUpdateTiles()
+     * Sphere.doUpdateTilesVisibilityStatus()
      *
-     * Called by Sphere.updateTiles to avoid throttling
+     * Called by Sphere.updateTilesVisibilityStatus to avoid throttling
      *
      * Trigger panorama tiles loading
      * if sphere.dynamicTileLoading is enabled, only visible tiles
@@ -419,75 +422,104 @@ $.extend(true,Sphere.prototype,{
      *
      * @return  undefined
      */
-    doUpdateTiles: function sphere_doUpdateTiles() {
+    doUpdateTilesVisibilityStatus: function sphere_doUpdateTilesVisibilityStatus() {
 
         var sphere=this;
         var panorama=sphere.panorama;
 
-        console.log('updateTiles');
+        console.log('updateTilesVisibilityStatus');
 
         // store current values
-        sphere.updateTiles.lon=panorama.lon;
-        sphere.updateTiles.lat=panorama.lat;
-        sphere.updateTiles.fov=panorama.camera.instance.fov;
-        sphere.updateTiles.canvas_widht=panorama.renderer.domElement.width;
-        sphere.updateTiles.canvas_widht=panorama.renderer.domElement.height;
+        sphere.updateTilesVisibilityStatus.lon=panorama.lon;
+        sphere.updateTilesVisibilityStatus.lat=panorama.lat;
+        sphere.updateTilesVisibilityStatus.fov=panorama.camera.instance.fov;
+        sphere.updateTilesVisibilityStatus.canvas_widht=panorama.renderer.domElement.width;
+        sphere.updateTilesVisibilityStatus.canvas_widht=panorama.renderer.domElement.height;
 
         // for every tile
         $.each(sphere.object3D.children, function() {
 
             var mesh = this;
 
-            // Trigger loading of tiles - Only for visible tiles if dynamic loading is enabled
-            if (!sphere.dynamicTileLoading || sphere.panorama.camera.frustum.intersectsObject(mesh)) {
-                
+            if (sphere.panorama.camera.frustum.intersectsObject(mesh)) {
+
                 // nothing to do if rendering is enabled for this tile
-                if (mesh.visible)
+                if (mesh._visible) {
                     return;
+                }
 
                 // enable rendering for this tile
-                mesh.visible = true;
+                mesh.visible=true;
 
-                // delay the sphere load event
-                if (sphere.dynamicTileLoading) ++sphere.tilesToLoad;
+                // tag as visible
+                mesh._visible = true;
 
-                // trigger tile loading
-                mesh.material.map=sphere.loadTile(mesh.col,mesh.row);
-                mesh.material.needsUpdate = true;
+                // announce it
+                mesh.dispatch('visibilitychange');
 
             } else {
-                // -> dynamic loading is enabled AND tile is out of view
-                
+
                 // nothing to do if rendering is disabled for this tile
-                if (!mesh.visible){
+                if (!mesh._visible){
                   return;
                 }
 
-                // disable rendering for this tile
-                mesh.visible = false;
+                // tag as invisible
+                mesh._visible = false;
 
-                // dispose hidden tile texture/material if requested
-                if (sphere.dynamicTileDisposal) {
-
-                    // has texture
-                    if (mesh.material && mesh.material.map) {
-
-                        // dispose texture and material
-                        mesh.material.map.dispose();
-                        mesh.material.dispose();
-
-                        // default material
-                        mesh.material = sphere.tileSet.defaultMaterial.clone();
-
-                    }
-
-                }
+                mesh.dispatch('visibilitychange');
             }
         });
 
-        sphere.updateTiles.timeout=null;
+        sphere.updateTilesVisibilityStatus.timeout=null;
 
-    }, // sphere_doUpdateTiles
+    }, // sphere_doUpdateTilesVisibilityStatus
+
+
+    /**
+    * Sphere.on_mesh_visibilitychange()
+    *
+    * Trigger dynamic tile loading or disposal on visibility status change
+    *
+    */
+    on_mesh_visibilitychange: function sphere_on_mesh_visibilitychange(e) {
+        var mesh=this;
+        var sphere=mesh.sphere;
+
+        // Trigger loading of tiles - Only for visible tiles if dynamic loading is enabled
+        if (!sphere.dynamicTileLoading || mesh._visible) {
+
+            // do nothing for tiles already requested
+            if (mesh.material.map && mesh.material.map.requested)
+                return;
+
+            // trigger loading for this tile
+            mesh.material.map=sphere.loadTile(mesh.col,mesh.row);
+            mesh.material.needsUpdate = true;
+
+            // make it known
+            mesh.material.map.requested=true;
+
+        } else {
+            // -> dynamic loading is enabled AND tile is out of view
+
+            // dispose hidden tile texture/material if requested
+            if (sphere.dynamicTileDisposal) {
+
+                // has texture
+                if (mesh.material && mesh.material.map) {
+
+                    // dispose texture and material
+                    mesh.material.map.dispose();
+                    mesh.material.dispose();
+
+                    // default material
+                    mesh.material = sphere.tileSet.defaultMaterial.clone();
+                }
+            }
+        }
+
+    }, // sphere_on_mesh_visibilitychange
 
     /**
      * Sphere.loadTile()
@@ -504,6 +536,8 @@ $.extend(true,Sphere.prototype,{
     loadTile: function sphere_loadTile(col,row) {
 
         var sphere = this;
+
+        ++sphere.tilesToLoad;
 
         // load the texture
         var tileTexture = THREE.ImageUtils.loadTexture(sphere.tileSet.getTileName(col,row),THREE.UVMapping,
@@ -547,6 +581,8 @@ $.extend(true,Sphere.prototype,{
     loadTile_progressive: function sphere_loadTile(col,row) {
 
       var sphere=this;
+
+      ++sphere.tilesToLoad;
 
       var tileTexture = this.texture.progressiveLoad(sphere.tileSet.getTileName(col,row),THREE.UVMapping,
 
@@ -613,16 +649,44 @@ $.extend(true,Sphere.prototype,{
         }
 
         // trigger tiles loading
-        sphere.updateTiles();
+        sphere.updateTilesVisibilityStatus();
 
-    } // sphere_tileSetChanged
+    }, // sphere_tileSetChanged
+
+    /**
+    * Sphere.loadRemainingTiles()
+    *
+    * Trigger loading of unrequested tiles
+    *
+    *
+    */
+    loadRemainingTiles: function sphere_loadRemainingTiles() {
+
+      var sphere=this;
+
+      $.each(sphere.object3D.children, function() {
+          var mesh = this;
+
+          // nothing to do if rendering is enabled for this tile or image already requested
+          if (mesh._visible || (mesh.material && mesh.material.map && mesh.material.map.requested)) {
+              return;
+          }
+
+          // trigger loading for this tile
+          mesh.material.map=sphere.loadTile(mesh.col,mesh.row);
+          mesh.material.needsUpdate = true;
+
+          // make it known
+          mesh.material.map.requested=true;
+      });
+    }
 
 }); // Sphere Prototype
 
 
 /*
  * Camera
- * Class Constructor
+ * Object Constructor
  */
 function Camera(options) {
 
@@ -726,15 +790,12 @@ $.extend(true,Camera.prototype,{
 
 /*
  * Panorama
- * Class Constructor
+ * Object Constructor
  */
 function Panorama(options) {
 
     if (!(this instanceof Panorama))
         return new Panorama(options);
-
-    // globalize
-    window.p = this;
 
     $.extend(true,this,this.defaults,options);
     this.init();
@@ -743,7 +804,7 @@ function Panorama(options) {
 
 /*
  * Panorama
- * Class Prototype
+ * Object Prototype
  */
 $.extend(true,Panorama.prototype,{
 
@@ -947,7 +1008,7 @@ $.extend(true,Panorama.prototype,{
 
     /**
      * Panorama.on_sphere_load()
-     * Panorama 'sphere_load' event handler, is run each time a tile set is loaded
+     * Panorama 'sphere_load' event handler, is run each time a tile (sub)set is loaded
      *
      * Trigger loading remaining tiles when sphere.dynamicTileInit is true
      * Trigger panorama 'resize' and 'ready' event
@@ -966,9 +1027,8 @@ $.extend(true,Panorama.prototype,{
       if (!sphere.panoramaReadyDispatched) {
 
         if (sphere.dynamicTileInit) {
-          // trigger loading remaining tiles
+          sphere.loadRemainingTiles();
           sphere.dynamicTileLoading=false;
-          sphere.doUpdateTiles();
         }
 
         panorama.dispatch('resize');
@@ -1742,7 +1802,7 @@ $.extend(true,Panorama.prototype,{
       panorama.dispatch('render');
 
       // trigger inconditional or dynamic tiles loading/disposal
-      panorama.sphere.updateTiles();
+      panorama.sphere.updateTilesVisibilityStatus();
     },
 
     /* Panorama.onresize()
@@ -1840,5 +1900,7 @@ setupEventDispatcher(Panorama.prototype);
 setupEventDispatcher(Sphere.prototype);
 setupEventDispatcher(TileSet.prototype);
 setupEventDispatcher(Camera.prototype);
+setupEventDispatcher(THREE.Mesh.prototype);
 Panorama.prototype.dispatchEventsTo(Camera.prototype);
 Sphere.prototype.dispatchEventsTo(Panorama.prototype);
+THREE.Mesh.prototype.dispatchEventsTo(Sphere.prototype);
